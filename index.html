@@ -1,0 +1,11 @@
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://koda.nu/simple.js">
+    var socket = io();
+
+    rectangle(0, 0, 20, 20, "black");
+    function update() {
+        if (keyboard.a) {
+            socket.emit('update', "a");
+        }
+    }
+</script>
