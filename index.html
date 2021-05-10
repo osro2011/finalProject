@@ -10,11 +10,48 @@
         <script src="https://koda.nu/simple.js">
             var socket = io();
 
-            rectangle(0, 0, 20, 20, "black");
-            function update() {
-                if (keyboard.a) {
-                    socket.emit('update', "a");
+            function Racket(x, y) {
+                this.width = 20;
+                this.height = 300;
+                this.x = x;
+                this.y = y - this.height/2;
+
+                this.update = function() {
+                    // make bounds
+                    this.draw();
                 }
+
+                this.draw = function() {
+                    rectangle(this.x, this.y, this.width, this.height, "black");
+                }
+            }
+
+            speed = 10;
+            
+            player1 = new Racket(5, totalHeight/2); 
+            player2 = new Racket(0, totalHeight/2); 
+            player2.x = totalWidth - (player2.width + 5)
+
+            function update() {
+                if (keyboard.w) {
+                    player1.y -= speed;
+                }
+
+                if (keyboard.s) {
+                    player1.y += speed;
+                }
+
+                if (keyboard.up) {
+                    player2.y -= speed;
+                }
+
+                if (keyboard.down) {
+                    player2.y += speed;
+                }
+
+                rectangle(0, 0, totalWidth, totalHeight, "white");
+                player1.update();
+                player2.update();
             }
         </script>
     </body>
