@@ -9,143 +9,107 @@
         <script src="/socket.io/socket.io.js"></script>
         <script src="https://koda.nu/simple.js">
             var socket = io();
-            role = "";
+            var game = 0;
+            // Change game state to end if the game ends
+            socket.on("end", (msg) => {
+                console.log(msg);
+                state = "end";
+            });
 
-            socket.on("assign", (msg) => {
-                role = msg;
-            })
+            // Set initial game data
+            socket.on("start", (msg) => {
+                state = "start";
+                game = new Game(msg);
+                game.draw();
+            });
 
-            if (role === "host") {
-                socket.on("update", (gamestate) => {
-                    console.log("recieved data");
-                    player2.x = p2x;
-                    player2.y = p2y;
-                });
-            } else if (role === "visitor") {
-                socket.on("update", (gamestate) => {
-                    console.log("recieved data");
-                    player1.x = p1x;
-                    player1.y = p1y; 
-                    ball.x = bx;
-                    ball.y = by;
-                });
-            };
+            // Update game data to be the same as servers
+            socket.on("data", (data) => {
+                player.x = data.p.x * totalWidth;
+                player.y = data.p.y * totalHeight;
 
-            function Racket(x, y) {
-                this.width = 20;
-                this.height = 300;
-                this.x = x;
-                this.y = y - this.height/2;
+                opponent.x = data.o.x * totalWidth;
+                opponent.y = data.o.y * totalHeight;
+
+                ball.x = data.ball.x * totalWidth;
+                ball.y = data.ball.y * totalHeight;
+
+                game.draw();
+            });
+
+            // Keep track of game state
+            var state = "waiting";
+            
+            function Game(msg) {
+                this.player = new Player(msg.p.x * totalWidth, msg.p.y * totalHeight);
+                this.player.paddle.width = msg.p.w * totalWidth;
+                this.player.paddle.height = msg.p.h * totalHeight;
+
+                this.opponent = new Player(msg.o.x * totalWidth, msg.o.y * totalHeight);
+                this.opponent.paddle.width = msg.o.w * totalWidth;
+                this.opponent.paddle.height = msg.o.h * totalHeight;
+
+                this.ball = new Ball(msg.ball.x * totalWidth, msg.ball.y * totalHeight, msg.ball.r * totalWidth)
+
+                this.update = function() {
+                    this.draw();
+                }
+
+                this.draw = function() {
+                    rectangle(0, 0, totalWidth, totalHeight, "white");
+                    this.player.draw();
+                    this.opponent.draw();
+                    this.ball.draw();
+                }
+
+                setInterval(() => {
+                    socket.emit("data", game.player.paddle.y/totalHeight);
+                }, 50);
+            }
+
+            function Player(x, y) {
+                this.paddle = new Paddle(x, y);
                 this.points = 0;
 
-                this.update = function() {
-                    if (this.y > totalHeight - this.height - 5) {
-                        this.y = totalHeight - this.height - 5;
-                    } else if (this.y < 5) {
-                        this.y = 5;
-                    }
-
-                    this.draw();
-                }
-
                 this.draw = function() {
-                    rectangle(this.x, this.y, this.width, this.height, "black");
+                    this.paddle.draw();
                 }
             }
 
-            function Ball(x, y, p1, p2) {
+            function Paddle(x, y) {
                 this.x = x;
                 this.y = y;
-                this.xv = (random(0, 1) > 0) ? random(10, 15) * -1 : random(10, 15);
-                this.yv = random(-10, 10);
-                this.r = 25;
-
-                this.renew = function() {
-                        this.x = totalWidth/2;
-                        this.y = totalHeight/2;
-                        this.xv = (random(0, 1) > 0) ? random(10, 15) * -1 : random(10, 15);
-                        this.yv = random(-10, 10);
-                }
+                this.width = 0;
+                this.height = 0;
 
                 this.draw = function() {
-                    circle(this.x, this.y, this.r, "black");
-                }
-
-                this.update = function() {
-                    this.x += this.xv;
-                    this.y += this.yv;
-
-                    if (this.y + this.r >= totalHeight || this.y <= this.r/2) {
-                        this.yv *= -1;
-                    }
-
-                    if (this.x - this.r <= p1.x + p1.width) {
-                        if (p1.y < this.y - this.r && p1.y + p1.height > this.y - this.r) {
-                            this.xv *= -1;
-                        }
-                    }
-
-                    if (this.x + this.r >= p2.x) {
-                        if (p2.y < this.y - this.r && p2.y + p1.height > this.y - this.r) {
-                            this.xv *= -1;
-                        }
-                    }
-
-                    if (this.x < 0) {
-                        p2.points++
-                        this.renew()
-                    }
-
-                    if (this.x > totalWidth) {
-                        p1.points++
-                        this.renew();
-                    }
-
-                    this.draw();
-                    if (role === "host") {
-                        socket.emit("event", {
-                            p1x: player1.x,
-                            p1y: player1.y,
-                            bx: ball.x,
-                            by: ball.y
-                        });
-                    } else if (role === "visitor") {
-                        socket.emit("event", {
-                            p2x: player2.x,
-                            p2y: player2.y,
-                        });
-                    }
+                    rectangle(this.x, this.y, this.width, this.height, "black")
                 }
             }
 
-            speed = 10;
-            
-            player1 = new Racket(5, totalHeight/2); 
-            player2 = new Racket(0, totalHeight/2); 
-            player2.x = totalWidth - (player2.width + 5);
-            ball = new Ball(totalWidth/2, totalHeight/2, player1, player2);
+            function Ball(x, y, r) {
+                this.x = x;
+                this.y = y;
+                this.r = r;
+
+                this.draw = function() {
+                    circle(this.x, this.y, this.r, "black")
+                }
+            }
 
             function update() {
-                if (keyboard.w) {
-                    player1.y -= speed;
+                // Move paddle if keys are being pressed
+                if (state === "start") {
+                    if (keyboard.up) {
+                        game.player.paddle.y -= 10;
+                    }
+    
+                    if (keyboard.down) {
+                        game.player.paddle.y += 10;
+                    }
                 }
-
-                if (keyboard.s) {
-                    player1.y += speed;
-                }
-
-                if (keyboard.up) {
-                    player2.y -= speed;
-                }
-
-                if (keyboard.down) {
-                    player2.y += speed;
-                }
-                rectangle(0, 0, totalWidth, totalHeight, "white");
-                player1.update();
-                player2.update();
-                ball.update();
             }
+
         </script>
     </body>
 </html>

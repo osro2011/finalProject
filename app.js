@@ -24,7 +24,7 @@ function cleanLobbies() {
 }
 
 // Clean up ended lobbies every 5 seconds
-setInterval(cleanLobbies, 5000);
+// setInterval(cleanLobbies, 5000);
 
 // Game logic
 
@@ -32,20 +32,52 @@ function Game(p1, p2) {
     // Store Players in game, game state and create a new ball.
     this.players = [p1, p2];
     this.state = "ongoing";
-    this.ball = new Ball();
-
+    // Create new ball in the center of the screen
+    this.ball = new Ball(0.5, 0.5);
+    // Set player 2's paddle to the right of the screen
+    this.players[1].paddle.x = 1 - this.players[1].paddle.width;
+    
+    // Make sure all players are still connected
+    for (player of this.players) {
+        if (player.status !== "connected") {
+            console.log("Ending game due to player " + player.status);
+            // this.endGame();
+            return "Failed to start game because not all players were connected.";
+        }
+    }
+    this.players[0].sendData("start", {
+        p: this.players[0].paddle.exportData(), 
+        o: this.players[1].paddle.exportData(), 
+        ball: this.ball.exportData()
+    });
+    
+    this.players[1].sendData("start", {
+        p: this.players[1].paddle.exportData(), 
+        o: this.players[0].paddle.exportData(), 
+        ball: this.ball.exportData()
+    });
+    
     // Main game update function
     this.update = function() {
-        // Check Player data
+        // Make sure all players are still connected
+        for (player of this.players) {
+            if (player.status !== "connected") {
+                console.log("Ending game due to player " + player.status);
+                this.endGame();
+            }
+        }
+        
         // Do game logic things
         // Send game data to Players
-    }
-    
-    for (player of this.players) {
-        player.socket.on("disconnect", (reason) => {
-            console.log("player disconnected, closing game " + reason);
-            player.status = "disconnected";
-            this.endGame();
+        this.players[0].sendData("data", {
+            p: this.players[0].paddle.exportPosition(), 
+            o: this.players[1].paddle.exportPosition(), 
+            ball: this.ball.exportPosition()
+        });
+        this.players[1].sendData("data", {
+            p: this.players[1].paddle.exportPosition(), 
+            o: this.players[0].paddle.exportPosition(), 
+            ball: this.ball.exportPosition()
         });
     }
 
@@ -54,32 +86,84 @@ function Game(p1, p2) {
             player.sendData("end", "game ended");
         }
         this.state = "ended";
-    };
+        cleanLobbies();
+    }
+
+    // Update game 30 times per second
+    setInterval(() => {this.update()}, 50);
 }
 
 function Paddle(x, y) {
-    this.width = 20;
-    this.height = 300;
+    this.width = 0.01;
+    this.height = 0.2;
     this.x = x;
     this.y = y - this.height/2;
+
+    this.exportPosition = function() {
+        return {
+            x: this.x,
+            y: this.y
+        }
+    }
+
+    this.exportData = function(){
+        return {
+            x: this.x,
+            y: this.y,
+            w: this.width,
+            h: this.height
+        }
+    }
+
+    this.update = function() {
+
+    }
 }
 
 function Ball(x, y) {
-    this.x = 0;
-    this.y = 0;
+    this.x = x;
+    this.y = y;
+    this.r = 0.008;
+
+    this.exportPosition = function() {
+        return {
+            x: this.x,
+            y: this.y
+        }
+    }
+
+    this.exportData = function(){
+        return {
+            x: this.x,
+            y: this.y,
+            r: this.r
+        }
+    }
 }
 
 function Player(socket) {
-    this.resolution = [];
     this.socket = socket;
     this.status = "connected";
-    this.paddle = new Paddle();
+    this.paddle = new Paddle(0, 0.5);
+
+    // Set player status if the socket disconnects
+    this.socket.on("disconnect", (reason) => {
+        console.log("player disconnected, " + reason);
+        this.status = "disconnected";
+    });
+
+    this.socket.on("data", (data) => {
+        this.paddle.y = data;
+    })
+
     this.sendData = function(event, message) {
         if (this.status === "connected") {
             this.socket.emit(event, message);
         }
     }
 }
+
+
 
 // Handle new sockets
 io.on('connection', (socket) => {
@@ -90,6 +174,7 @@ io.on('connection', (socket) => {
     // Create a new game and push it to the lobbies array if there are two or more players in queue
     if (queue.length % 2 == 0 || queue.length > 2) {
         lobbies.push(new Game(queue.pop(), queue.pop()));
+        console.log("New lobby created");
     }
 });
 
