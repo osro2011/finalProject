@@ -11,6 +11,8 @@ var queue = [];
 
 // Server logic
 
+// Add queue cleanup (maybe clean up before adding new players to the queue?)
+
 function cleanLobbies() {
     console.log("Cleaning game lobbies...")
     for (lobby of lobbies) {
@@ -79,22 +81,23 @@ function Player(socket) {
     }
 }
 
+// Handle new sockets
+io.on('connection', (socket) => {
+    // Log new connection
+    console.log("New connection")
+    // Push the new connection as a Player to the player queue
+    queue.push(new Player(socket));
+    // Create a new game and push it to the lobbies array if there are two or more players in queue
+    if (queue.length % 2 == 0 || queue.length > 2) {
+        lobbies.push(new Game(queue.pop(), queue.pop()));
+    }
+});
+
+// Send index.html if the HTTP server gets a connection.
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
 });
-
-io.on('connection', (socket) => {
-    console.log("new connection")
-    queue.push(new Player(socket));
-    if (queue.length % 2 == 0) {
-        lobbies.push(new Game(queue.pop(), queue.pop()));
-    }
-    socket.on("disconnect", (reason) => {
-        console.log("disconnected " + reason);
-    })
-});
-
+// Start HTTP server
 server.listen(3000, () => {
-    console.log('listening on 3000');
+    console.log('Listening on port 3000');
 });
-
