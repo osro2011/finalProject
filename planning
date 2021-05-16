@@ -1,0 +1,55 @@
+Goal:
+    Online Multiplayer Pong
+
+Languages/Tech:
+    Javascript + simple.js in browser for client side
+    NodeJS for server side
+        Express for handling HTTP server
+        socket.io for handling communications between server and client
+        
+Feature list:
+    P3 Start Screen
+        P3 Play button
+        P4 Help button
+    P4 Tutorial Screen
+        P4 Back button
+        P4 Game info
+    P2 Waiting Screen
+        P2 Waiting status
+    P1 Game Screen
+        P1 2 User Controlled Paddles
+        P1 Ball movement
+        P1 Collision detection
+        P2 Score Display
+    P3 Game Over Screen
+        P3 Win/Loss
+        P3 Score
+
+Architecture:
+    Objects:   
+        Paddle(.move()
+        Ball(.move())
+        Game(.send(), store Players)
+
+    Screens:
+        Start
+        Help
+        Game
+        End
+
+    Logic:
+        Ball-Paddle Collision
+        Matchmake Players
+        Server calculations
+
+    Server Interaction:
+        Send game state
+
+    User Interaction:
+        Keyboard-paddle movement
+        Buttons for screen changes
+
+    User Data:
+        Score(int)
+
+    
