@@ -1,7 +1,6 @@
 {
-  "name": "project_server",
-  "version": "1.0.0",
-  "description": "",
+  "name": "project",
+  "version": "2.0.0",
   "main": "index.js",
   "dependencies": {
     "express": "^4.17.1",
@@ -21,5 +20,6 @@
   "bugs": {
     "url": "https://github.com/osro2011/finalProject/issues"
   },
-  "homepage": "https://github.com/osro2011/finalProject#readme"
+  "homepage": "https://github.com/osro2011/finalProject#readme",
+  "description": ""
 }

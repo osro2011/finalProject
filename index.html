@@ -9,107 +9,131 @@
         <script src="/socket.io/socket.io.js"></script>
         <script src="https://koda.nu/simple.js">
             var socket = io();
-            var game = 0;
-            // Change game state to end if the game ends
-            socket.on("end", (msg) => {
-                console.log(msg);
-                state = "end";
+
+            game = new Game();
+
+            socket.on("sync", (msg) => {
+                game.ball.xSpeed = msg.bxs * game.resolution.x;
+                game.ball.ySpeed = msg.bys * game.resolution.y;
+                game.player1.speed = msg.ps * game.resolution.y;
+                game.player2.speed = msg.os * game.resolution.y;
+                game.player1.height = msg.h * game.resolution.y;
+                game.player1.width = msg.w * game.resolution.x;
+                game.player2.height = msg.h * game.resolution.y;
+                game.player2.width = msg.w * game.resolution.x;
+            })
+
+            socket.on("ballUpdate", (msg) => {
+                game.ball.xSpeed = msg.xs * game.resolution.x;
+                game.ball.ySpeed = msg.ys * game.resolution.y;
             });
 
-            // Set initial game data
-            socket.on("start", (msg) => {
-                state = "start";
-                game = new Game(msg);
-                game.draw();
+            socket.on("posUpdate", (msg) => {
+                game.player1.x = msg.px * game.resolution.x;
+                game.player1.y = msg.py * game.resolution.y;
+                game.player2.x = msg.ox * game.resolution.x;
+                game.player2.y = msg.oy * game.resolution.y;
+                game.ball.x = msg.bx * game.resolution.x;
+                game.ball.y = msg.by * game.resolution.y;
             });
 
-            // Update game data to be the same as servers
-            socket.on("data", (data) => {
-                player.x = data.p.x * totalWidth;
-                player.y = data.p.y * totalHeight;
+            function Ball(game) {
+                this.game = game;
+                this.x = 0;
+                this.y = 0;
+                this.r = 10;
+                this.xSpeed = 566;
+                this.ySpeed = 400;
 
-                opponent.x = data.o.x * totalWidth;
-                opponent.y = data.o.y * totalHeight;
-
-                ball.x = data.ball.x * totalWidth;
-                ball.y = data.ball.y * totalHeight;
-
-                game.draw();
-            });
-
-            // Keep track of game state
-            var state = "waiting";
-            
-            function Game(msg) {
-                this.player = new Player(msg.p.x * totalWidth, msg.p.y * totalHeight);
-                this.player.paddle.width = msg.p.w * totalWidth;
-                this.player.paddle.height = msg.p.h * totalHeight;
-
-                this.opponent = new Player(msg.o.x * totalWidth, msg.o.y * totalHeight);
-                this.opponent.paddle.width = msg.o.w * totalWidth;
-                this.opponent.paddle.height = msg.o.h * totalHeight;
-
-                this.ball = new Ball(msg.ball.x * totalWidth, msg.ball.y * totalHeight, msg.ball.r * totalWidth)
+                this.lastUpdate = Date.now();
 
                 this.update = function() {
-                    this.draw();
-                }
+                    let now = Date.now();
+                    let dt = (now - this.lastUpdate)/1000;
+                    this.lastUpdate = now;
 
-                this.draw = function() {
+                    // Clientside hit decection, is buggy
+
+                    // if (this.y < this.r) {
+                    //     this.y = this.r;
+                    //     this.ySpeed *= -1;
+                    // } else if (this.y > 1080 - this.r) {
+                    //     this.y = 1080 - this.r;
+                    //     this.ySpeed *= -1;
+                    // }
+
+                    // if (this.x < game.player1.width + this.r && this.y > game.player1.y - this.r && this.y < game.player1.y + game.player1.height + this.r && this.x > game.player1.x + game.player1.width) {
+                    //     this.x = this.r + game.player1.width;
+                    //     this.xSpeed *= -1;
+                    // } else if (this.x > game.player2.x - this.r && this.y > game.player2.y - this.r && this.y < game.player2.y + game.player2.height + this.r && this.x > game.player2.x + game.player2.width) {
+                    //     this.x = game.player2.x - this.r;
+                    //     this.xSpeed *= -1;
+                    // }
+
+                    this.x += this.xSpeed * dt;
+                    this.y += this.ySpeed * dt;
+
+                    circle(this.x, this.y, this.r, "black");
+                }
+            }
+
+            function Paddle(game) {
+                this.direction = 0;
+                this.width = 20;
+                this.height = 200;
+                this.game = game;
+                this.speed = 600;
+                this.x = 0;
+                this.y = 0;
+
+                this.lastUpdate = Date.now();
+
+                this.update = function() {
+                    let now = Date.now();
+                    let dt = (now - this.lastUpdate)/1000;
+                    this.lastUpdate = now;
+
+                    if (this.y + this.direction * dt * this.speed <= this.game.resolution.y - this.height && this.y + this.direction * dt * this.speed >= 0) {
+                        this.y += this.direction * dt * this.speed;
+                    } else if (this.y + this.direction * dt * this.speed <= this.game.resolution.y - this.height) {
+                        this.y = 0;
+                    } else if (this.y + this.direction * dt * this.speed >= 0) {
+                        this.y = this.game.resolution.y - this.height;
+                    }
+                    rectangle(this.x, this.y, this.width, this.height, "black");
+                }
+            }
+            
+            function Game() {
+                this.resolution = {x: totalWidth, y: totalHeight}
+                this.player1 = new Paddle(this);
+                this.player2 = new Paddle(this);
+                this.player2.x = this.resolution.x - this.player2.width;
+                this.ball = new Ball(this);
+
+                this.update = function() {
                     rectangle(0, 0, totalWidth, totalHeight, "white");
-                    this.player.draw();
-                    this.opponent.draw();
-                    this.ball.draw();
-                }
-
-                setInterval(() => {
-                    socket.emit("data", game.player.paddle.y/totalHeight);
-                }, 50);
+                    this.player1.update();
+                    this.player2.update();
+                    this.ball.update(this);
+                };
             }
 
-            function Player(x, y) {
-                this.paddle = new Paddle(x, y);
-                this.points = 0;
-
-                this.draw = function() {
-                    this.paddle.draw();
-                }
-            }
-
-            function Paddle(x, y) {
-                this.x = x;
-                this.y = y;
-                this.width = 0;
-                this.height = 0;
-
-                this.draw = function() {
-                    rectangle(this.x, this.y, this.width, this.height, "black")
-                }
-            }
-
-            function Ball(x, y, r) {
-                this.x = x;
-                this.y = y;
-                this.r = r;
-
-                this.draw = function() {
-                    circle(this.x, this.y, this.r, "black")
-                }
-            }
-
+            updatesPerSecond = 60;
             function update() {
-                // Move paddle if keys are being pressed
-                if (state === "start") {
-                    if (keyboard.up) {
-                        game.player.paddle.y -= 10;
-                    }
-    
-                    if (keyboard.down) {
-                        game.player.paddle.y += 10;
-                    }
+                if (!keyboard.down && !keyboard.up || keyboard.down && keyboard.up) {
+                    game.player1.direction = 0;
+                    socket.emit("input", 0);
+                } else if (keyboard.up) {
+                    game.player1.direction = -1;
+                    socket.emit("input", -1);
+                } else if (keyboard.down) {
+                    game.player1.direction = 1;
+                    socket.emit("input", 1);
                 }
-            }
 
+                game.update();
+            }
         </script>
     </body>
 </html>

@@ -53,4 +53,13 @@ Architecture:
     User Data:
         Score(int)
 
-    
+   http://buildnewgames.com/real-time-multiplayer/
+
+   TODO:
+   Refactor and standardize entire program
+   Switch to 16:9 aspect ratio
+   Remove all client-side prediction
+   Make game work server-side only
+   Implement deltatime
+
+   Reimplement client-side prediction
