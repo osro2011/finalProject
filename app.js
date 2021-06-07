@@ -209,6 +209,7 @@ io.on('connection', (socket) => {
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
 });
+
 // Start HTTP server
 server.listen(3000, () => {
     console.log('Listening on port 3000');
