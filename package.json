@@ -8,6 +8,7 @@
   },
   "devDependencies": {},
   "scripts": {
+      "start": "node app.js"
   },
   "repository": {
     "type": "git",

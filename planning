@@ -1,3 +1,5 @@
+** THIS IS OUTDATED **
+
 Goal:
     Online Multiplayer Pong
 
@@ -63,3 +65,5 @@ Architecture:
    Implement deltatime
 
    Reimplement client-side prediction
+
+** THIS IS OUTDATED **
