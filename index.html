@@ -10,24 +10,30 @@
         <script src="https://koda.nu/simple.js">
             var socket = io();
 
+            // Create game lobby to keep track of everything
             game = new Game();
 
+            // Recieve and store data for syncing game variables
             socket.on("sync", (msg) => {
                 game.ball.xSpeed = msg.bxs * game.resolution.x;
                 game.ball.ySpeed = msg.bys * game.resolution.y;
+                game.ball.r = msg.br * game.resolution.x;
                 game.player1.speed = msg.ps * game.resolution.y;
                 game.player2.speed = msg.os * game.resolution.y;
                 game.player1.height = msg.h * game.resolution.y;
                 game.player1.width = msg.w * game.resolution.x;
                 game.player2.height = msg.h * game.resolution.y;
                 game.player2.width = msg.w * game.resolution.x;
-            })
+                game.status = "ongoing";
+            });
 
+            // Recieve and store data for updates of ball speed
             socket.on("ballUpdate", (msg) => {
                 game.ball.xSpeed = msg.xs * game.resolution.x;
                 game.ball.ySpeed = msg.ys * game.resolution.y;
             });
 
+            // Recieve and store data for player movement
             socket.on("posUpdate", (msg) => {
                 game.player1.x = msg.px * game.resolution.x;
                 game.player1.y = msg.py * game.resolution.y;
@@ -37,62 +43,74 @@
                 game.ball.y = msg.by * game.resolution.y;
             });
 
+            // Recieve and store score
+            socket.on("score", (msg) => {
+                game.player1.score = msg.p1,
+                game.player2.score = msg.p2
+            });
+
+            // Recieve game end message
+            socket.on("end", (msg) => {
+                game.status = msg;
+            });
+
+            // Ball function, keeps track of the ball and client-side prediction of the ball
             function Ball(game) {
                 this.game = game;
-                this.x = 0;
-                this.y = 0;
-                this.r = 10;
-                this.xSpeed = 566;
-                this.ySpeed = 400;
+                this.x;
+                this.y;
+                this.r;
+                this.xSpeed;
+                this.ySpeed;
 
+                // Timer for delta time
                 this.lastUpdate = Date.now();
 
                 this.update = function() {
+                    // Math for delta time
                     let now = Date.now();
                     let dt = (now - this.lastUpdate)/1000;
                     this.lastUpdate = now;
 
-                    // Clientside hit decection, is buggy
+                    // Check if ball has gone off the left or right side, reset if so
+                    if (this.x + this.r < 0) {
+                        this.x = this.game.resolution.x/2;
+                        this.y = this.game.resolution.y/2;
+                    } else if (this.x - this.r > this.game.resolution.x) {
+                        this.x = this.game.resolution.x/2;
+                        this.y = this.game.resolution.y/2;
+                    }
 
-                    // if (this.y < this.r) {
-                    //     this.y = this.r;
-                    //     this.ySpeed *= -1;
-                    // } else if (this.y > 1080 - this.r) {
-                    //     this.y = 1080 - this.r;
-                    //     this.ySpeed *= -1;
-                    // }
-
-                    // if (this.x < game.player1.width + this.r && this.y > game.player1.y - this.r && this.y < game.player1.y + game.player1.height + this.r && this.x > game.player1.x + game.player1.width) {
-                    //     this.x = this.r + game.player1.width;
-                    //     this.xSpeed *= -1;
-                    // } else if (this.x > game.player2.x - this.r && this.y > game.player2.y - this.r && this.y < game.player2.y + game.player2.height + this.r && this.x > game.player2.x + game.player2.width) {
-                    //     this.x = game.player2.x - this.r;
-                    //     this.xSpeed *= -1;
-                    // }
-
+                    // Predict where the ball will be
                     this.x += this.xSpeed * dt;
                     this.y += this.ySpeed * dt;
 
+                    // Draw ball
                     circle(this.x, this.y, this.r, "black");
                 }
             }
 
+            // Function for keeping track of players and predicting where players will be next frame.
             function Paddle(game) {
                 this.direction = 0;
-                this.width = 20;
-                this.height = 200;
+                this.score = 0;
+                this.width;
+                this.height;
                 this.game = game;
-                this.speed = 600;
-                this.x = 0;
-                this.y = 0;
+                this.speed;
+                this.x;
+                this.y;
 
+                // Timer for delta time
                 this.lastUpdate = Date.now();
 
                 this.update = function() {
+                    // Math for delta time
                     let now = Date.now();
                     let dt = (now - this.lastUpdate)/1000;
                     this.lastUpdate = now;
 
+                    // Move players and make sure they don't go out of bounds
                     if (this.y + this.direction * dt * this.speed <= this.game.resolution.y - this.height && this.y + this.direction * dt * this.speed >= 0) {
                         this.y += this.direction * dt * this.speed;
                     } else if (this.y + this.direction * dt * this.speed <= this.game.resolution.y - this.height) {
@@ -100,39 +118,62 @@
                     } else if (this.y + this.direction * dt * this.speed >= 0) {
                         this.y = this.game.resolution.y - this.height;
                     }
+
+                    // Draw players
                     rectangle(this.x, this.y, this.width, this.height, "black");
                 }
             }
             
+            // Main game function to keep track of game objects and status
             function Game() {
                 this.resolution = {x: totalWidth, y: totalHeight}
                 this.player1 = new Paddle(this);
                 this.player2 = new Paddle(this);
                 this.player2.x = this.resolution.x - this.player2.width;
                 this.ball = new Ball(this);
+                this.status = "waiting"
 
+                // Draw background, center line, score and call updates for players and ball
                 this.update = function() {
                     rectangle(0, 0, totalWidth, totalHeight, "white");
+                    line(totalWidth/2, 0, totalWidth/2, totalHeight, 0.005 * totalWidth, "black");
+                    text(totalWidth/2 - totalWidth * 0.08, totalHeight * 0.05, totalHeight/30, this.player1.score, "black");
+                    text(totalWidth/2 + totalWidth * 0.08, totalHeight * 0.05, totalHeight/30, this.player2.score, "black");
                     this.player1.update();
                     this.player2.update();
                     this.ball.update(this);
                 };
             }
 
+            // Set UPS to 60
             updatesPerSecond = 60;
+            // Main update function
             function update() {
-                if (!keyboard.down && !keyboard.up || keyboard.down && keyboard.up) {
-                    game.player1.direction = 0;
-                    socket.emit("input", 0);
-                } else if (keyboard.up) {
-                    game.player1.direction = -1;
-                    socket.emit("input", -1);
-                } else if (keyboard.down) {
-                    game.player1.direction = 1;
-                    socket.emit("input", 1);
+                // Check which state the game is in, draw correct screen
+                if (game.status === "ongoing") {
+                    // Check for and handle user input
+                    if (!keyboard.down && !keyboard.up || keyboard.down && keyboard.up) {
+                        // Set local player direction
+                        game.player1.direction = 0;
+                        // Send server player input
+                        socket.emit("input", 0);
+                    } else if (keyboard.up) {
+                        game.player1.direction = -1;
+                        socket.emit("input", -1);
+                    } else if (keyboard.down) {
+                        game.player1.direction = 1;
+                        socket.emit("input", 1);
+                    }
+    
+                    // Call game update
+                    game.update();
+                } else if (game.status === "ended") {
+                    rectangle(0, 0, totalWidth, totalHeight, "white");
+                    text(totalWidth * 0.2, totalHeight/2, totalHeight/20, "Game Over", "black");
+                } else {
+                    rectangle(0, 0, totalWidth, totalHeight, "white");
+                    text(totalWidth * 0.2, totalHeight/2, totalHeight/20, "Waiting for opponent...", "black");
                 }
-
-                game.update();
             }
         </script>
     </body>
